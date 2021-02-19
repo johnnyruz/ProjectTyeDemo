@@ -1,0 +1,88 @@
+﻿@page "/photogallery"
+@using Microsoft.AspNetCore.SignalR.Client
+@using FrontendBlazor.Components;
+@inject HttpClient Http
+@inject ApiBaseAddress ApiBase
+
+<h1 class="text-5xl font-medium">PhotoTye Gallery</h1>
+
+@if (photos == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+<div style="margin:10px;">
+    <button @onclick="LaunchUploadPhoto" class="bg-gray-600 rounded-lg text-white p-3">
+        <span class="oi oi-plus" aria-hidden="true"></span> Add Photo
+    </button>
+    <UploadPhotoDialog @ref="UploadPhotoDialog"></UploadPhotoDialog>
+
+    @if (PhotosAdded)
+    {
+        <button class="bg-gray-600 rounded-lg text-white p-3" @onclick="@HandleRefreshPhotosClicked">
+            <span class="oi oi-reload" aria-hidden="true"></span> Refresh Gallery
+        </button>
+        <span class="pl-2 text-lg font-bold text-purple-900">New Photos Added!</span>
+    }
+</div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
+        @foreach (var p in photos)
+        {
+            <a href="/photoview/@p.Id">
+                <img src=@p.ThumbnailImageData />
+            </a>
+        }
+    </div>
+}
+
+@code {
+
+    private UploadPhotoDialog UploadPhotoDialog { get; set; }
+    private HubConnection hubConnection;
+    private Photo[] photos;
+    private bool PhotosAdded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        photos = await Http.GetFromJsonAsync<Photo[]>($"{ApiBase.ApiBaseUrl}/api/photo");
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(new Uri(ApiBase.SignalRUrl))
+            .Build();
+
+        hubConnection.On("NewPhotoAdded", () =>
+        {
+            PhotosAdded = true;
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    protected void LaunchUploadPhoto()
+    {
+        UploadPhotoDialog.Show();
+    }
+
+    private async Task HandleRefreshPhotosClicked()
+    {
+        photos = await Http.GetFromJsonAsync<Photo[]>($"{ApiBase.ApiBaseUrl}/api/photo");
+        PhotosAdded = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await hubConnection.DisposeAsync();
+    }
+
+    public class Photo
+    {
+        public string Id { get; set; }
+        public DateTime UploadDate { get; set; }
+        public string ThumbnailImageData { get; set; }
+        public string ProcessedImageData { get; set; }
+        public bool IsProcessed { get; set; }
+    }
+}

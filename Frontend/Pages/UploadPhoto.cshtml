@@ -1,0 +1,18 @@
+﻿@page
+@model Frontend.Pages.UploadPhotoModel
+@{
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Upload</title>
+</head>
+<body>
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" asp-for="Upload" />
+        <input type="submit" />
+    </form>
+    <p>@Model.ErrorResult</p>
+</body>
+</html>

@@ -1,0 +1,77 @@
+﻿@page
+@model Frontend.Pages.ViewPhotoModel
+@{
+}
+
+@if (Model.PhotoData.IsProcessed)
+{
+
+<div class="view-photo-container">
+
+    <div class="processed-image-container">
+        <img class="processed-image" src=@Model.PhotoData.ProcessedImageData />
+    </div>
+
+    <div class="comments">
+        <form method="post">
+            <h6 style="margin-top: 20px;">Enter a New Comment:</h6>
+            <input style="margin-bottom: 5px;width: 100%" type="text" name="comment_text">
+            <input type="hidden" value="@Model.PhotoData.Id" name="photo_id">
+            <input type="submit">
+        </form>
+
+        <div id="comments-list">
+            @foreach (var c in Model.Comments)
+            {
+                <hr />
+                <h5>@c.CommentDate</h5>
+                <p>@c.CommentText</p>
+            }
+        </div>
+    </div>
+</div>
+}
+else
+{
+    <img src=@Model.PhotoData.ThumbnailImageData />
+
+    <div id="processing_status">
+        Photo is processing.....
+    </div>
+}
+
+<script src="~/lib/microsoft/signalr/dist/browser/signalr.js"></script>
+<script type="text/javascript">
+
+    var connection = new signalR.HubConnectionBuilder().withUrl("@Model.SignalRUrl").build();
+
+    connection.on("CommentAdded", function (text, date, id) {
+        //In order to refresh comments here automatically:
+        //1. Update Message Bus model to include comment text and date
+        //2. Send those back in the SignalR Message
+        //3. Append that information to the top of the comments-list DIV
+        console.log("New Comment Added!");
+        var currentDivHtml = document.getElementById("comments-list").innerHTML;
+        document.getElementById("comments-list").innerHTML = `<hr /><h5>${date}</h5><p>${text}</p>${currentDivHtml}`;
+    });
+
+    connection.on("ProcessingComplete", function () {
+        //var encodedMsg = "New Comment Added For This Photo!";
+        //var li = document.createElement("li");
+        //li.textContent = encodedMsg;
+        //document.getElementById("messagesList").appendChild(li);
+        console.log("Processing Complete!");
+        window.location.reload();
+    });
+
+    connection.start().then(function () {
+        //document.getElementById("status").innerHTML = "<h6>Connected</h6>";
+        console.log("WebSocket Connected!");
+        connection.invoke("JoinGroup", "@Model.PhotoData.Id").catch(function (err) {
+            return console.error(err.toString());
+        });
+    }).catch(function (err) {
+        return console.error(err.toString());
+    });
+
+</script>

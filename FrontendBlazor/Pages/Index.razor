@@ -1,0 +1,58 @@
+﻿@page "/"
+
+<h1 class="text-5xl font-medium">Welcome to PhotoTye!</h1>
+
+<div class="pt-5">
+    Welcome to PhotoTye. This application is designed to demonstrate a microservice application deployed using Microsoft Project Tye.
+</div>
+
+
+<div class="text-lg font-bold pt-5">
+    Example Data Flows:
+    <div>
+        <a href="/" @onclick="@SelectGetPhoto">Get Photo</a>
+    </div>
+
+    <div>
+        <a href="/" @onclick="@SelectUploadPhoto">Upload Photo</a>
+    </div>
+    <div>
+        <a href="/" @onclick="@SelectAddComment">Add Comment</a>
+    </div>
+</div>
+<img src=@SelectedGif />
+
+@code {
+
+    private string SelectedGif { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SelectedGif = "img/Overview.jpg";
+    }
+
+    private void SelectGif(string photo)
+    {
+        if (SelectedGif == photo)
+            return;
+
+        SelectedGif = photo;
+        StateHasChanged();
+    }
+
+    protected void SelectGetPhoto()
+    {
+        this.SelectGif("img/GetPhoto.gif");
+    }
+
+    protected void SelectUploadPhoto()
+    {
+        this.SelectGif("img/UploadPhoto.gif");
+    }
+
+    protected void SelectAddComment()
+    {
+        this.SelectGif("img/AddComment.gif");
+    }
+
+}

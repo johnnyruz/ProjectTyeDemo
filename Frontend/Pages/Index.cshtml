@@ -1,0 +1,42 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to PhotoTye!</h1>
+    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+</div>
+
+<div id="photos-added" style="display: none;">
+    <h6>New Photos Added!</h6>
+    <button onclick="window.location.reload();">Reload</button>
+</div>
+
+@{
+    foreach (var v in Model.PhotoServiceData)
+    {
+        <a asp-page="/ViewPhoto" asp-route-id="@v.Id">
+            <img src=@v.ThumbnailImageData />
+        </a>
+    }
+}
+
+<script src="~/lib/microsoft/signalr/dist/browser/signalr.js"></script>
+<script type="text/javascript">
+
+    var connection = new signalR.HubConnectionBuilder().withUrl("@Model.SignalRUrl").build();
+
+    connection.on("NewPhotoAdded", function () {
+        document.getElementById("photos-added").style.display = "block";
+    });
+
+    connection.start().then(function () {
+        //document.getElementById("status").innerHTML = "<h6>Connected</h6>";
+        console.log("WebSocket Connected!");
+    }).catch(function (err) {
+        return console.error(err.toString());
+    });
+
+</script>

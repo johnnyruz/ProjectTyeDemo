@@ -1,0 +1,102 @@
+# tye application configuration file
+# read all about it at https://github.com/dotnet/tye
+#
+# when you've given us a try, we'd love to know what you think:
+#    https://aka.ms/AA7q20u
+#
+name: phototye
+
+services:
+- name: commentsserviceapi
+  project: CommentsServiceAPI/CommentsServiceAPI.csproj
+
+- name: photoserviceapi
+  project: PhotoServiceAPI/PhotoServiceAPI.csproj
+  liveness:
+    http:
+      path: /healthy
+  readiness:
+    http:
+      path: /ready
+    period: 10
+    
+- name: notificationserviceapi
+  project: NotificationServiceAPI/NotificationServiceAPI.csproj
+  bindings:
+    - name: http
+      protocol: http
+      port: 55555
+
+- name: photoprocessor
+  dockerFile: PhotoProcessor/Dockerfile
+  dockerFileContext: PhotoProcessor/
+  replicas: 3
+  env:
+    - name: RMQ_USER
+      value: user
+    - name: RMQ_PASS
+      value: pass
+    - name: PROCESS_DELAY_TIME
+      value: 10
+  
+- name: frontend
+  project: Frontend/Frontend.csproj
+  bindings:
+    - name: http
+      protocol: http
+
+- name: frontendblazor
+  project: FrontendBlazor/FrontendBlazor.csproj
+  bindings:
+    - name: http
+      protocol: http
+  env:
+    - ASPNETCORE_ENVIRONMENT=Development
+#    - ASPNETCORE_ENVIRONMENT=Prod
+  
+- name: mongo
+  image: mongo
+  env:
+    - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+      value: root
+    - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+      value: example
+  bindings:
+    - port: 27017
+      connectionString: "mongodb://${host}:${port}"
+  volumes:
+    - source: mongo/data
+      target: /data/db
+      
+- name: rabbitmq
+  image: rabbitmq:3-management-alpine
+  env:
+    - name: RABBITMQ_DEFAULT_USER
+      value: user
+    - name: RABBITMQ_DEFAULT_PASS
+      value: pass
+  bindings:
+    - name: rmq
+      port: 5672
+      protocol: rabbitmq
+    - name: mgmt
+      port: 15672
+
+ingress:
+- name: phototye-ingress
+  bindings:
+  - port: 8080
+    protocol: http
+  rules:
+    - path: /api/photo
+      preservePath: true
+      service: photoserviceapi
+    - path: /api/comments
+      preservePath: true
+      service: commentsserviceapi
+    - path: /phototyehub
+      preservePath: true
+      service: notificationserviceapi
+    - path: /
+      service: frontendblazor
+      

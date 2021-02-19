@@ -1,0 +1,132 @@
+﻿@page "/photoview/{PhotoId}"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject HttpClient Http
+@inject ApiBaseAddress ApiBase
+
+@if (photo == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (photo.IsProcessed)
+    {
+        <div class="view-photo-container">
+
+            <div class="processed-image-container">
+                <img class="processed-image" src=@photo.ProcessedImageData />
+            </div>
+
+            <div class="comments">
+                <EditForm Model="@newCommentModel" OnValidSubmit="@HandleNewCommentSubmit" style="text-align: right;">
+                    <InputTextArea style="width: 100%;border:1px solid;" @bind-Value="newCommentModel.CommentText" />
+                    <button class="bg-gray-600 rounded-lg text-white p-3" type="submit">
+                        Comment
+                    </button>
+                </EditForm>
+
+                <div id="comments-list">
+                    @if (comments?.Length > 0)
+                    {
+                        <div class="divide-y divide-gray-200">
+                            @foreach (var c in comments)
+                            {
+                            <div class="pb-2">
+                                <h5 class="text-xl font-semibold mb-1">@c.CommentDate</h5>
+                                <p>@c.CommentText</p>
+                            </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <hr />
+                        <h5 class="text-2xl font-bold mb-1">No Comments Yet!</h5>
+                        <p>Start the discussion now!</p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <img src=@photo.ThumbnailImageData />
+
+        <div id="processing_status">
+            Photo is processing.....
+        </div>
+    }
+}
+
+@code {
+
+    [Parameter]
+    public string PhotoId { get; set; }
+
+    private HubConnection hubConnection;
+    private Photo photo;
+    private Comment[] comments;
+    private Comment newCommentModel = new Comment();
+
+    protected override async Task OnInitializedAsync()
+    {
+        photo = await Http.GetFromJsonAsync<Photo>($"{ApiBase.ApiBaseUrl}/api/photo/{PhotoId}");
+        comments = await Http.GetFromJsonAsync<Comment[]>($"{ApiBase.ApiBaseUrl}/api/comments/photo/{PhotoId}");
+        newCommentModel.PhotoId = photo.Id;
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(new Uri(ApiBase.SignalRUrl))
+            .Build();
+
+        hubConnection.On<string, string, string>("CommentAdded", (text, date, id) =>
+        {
+            if (!comments.Any(c => c.Id == id))
+            {
+                comments = comments.Prepend<Comment>(new Comment { Id = id, CommentDate = DateTime.Parse(date), CommentText = text, PhotoId = photo.Id }).ToArray();
+                StateHasChanged();
+            }
+        });
+
+        hubConnection.On("ProcessingComplete", ReloadPhoto);
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync<string>("JoinGroup", photo.Id);
+
+    }
+
+    private async Task ReloadPhoto()
+    {
+        photo = await Http.GetFromJsonAsync<Photo>($"{ApiBase.ApiBaseUrl}/api/photo/{PhotoId}");
+        StateHasChanged();
+    }
+
+    private async Task HandleNewCommentSubmit()
+    {
+        var response = await Http.PostAsJsonAsync<Comment>($"{ApiBase.ApiBaseUrl}/api/comments", newCommentModel);
+        var commentResult = await response.Content.ReadFromJsonAsync<Comment>();
+        comments = comments.Prepend<Comment>(commentResult).ToArray();
+        newCommentModel = new Comment() { PhotoId = photo.Id };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await hubConnection.DisposeAsync();
+    }
+
+    public class Photo
+    {
+        public string Id { get; set; }
+        public DateTime UploadDate { get; set; }
+        public string ThumbnailImageData { get; set; }
+        public string ProcessedImageData { get; set; }
+        public bool IsProcessed { get; set; }
+    }
+
+    public class Comment
+    {
+        public string Id { get; set; }
+        public string PhotoId { get; set; }
+        public string CommentText { get; set; }
+        public DateTime CommentDate { get; set; }
+    }
+}

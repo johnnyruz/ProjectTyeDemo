@@ -1,0 +1,93 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: rabbitmq
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: phototye-dependencies
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: phototye-dependencies
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management-alpine
+          ports:
+            - name: management
+              containerPort: 15672
+            - name: app
+              containerPort: 5672
+          env:
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "pass"
+            - name: RABBITMQ_DEFAULT_USER
+              value: "user"
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: mongo
+  labels:
+    app.kubernetes.io/name: mongo
+    app.kubernetes.io/part-of: phototye-dependencies
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mongo
+        app.kubernetes.io/part-of: phototye-dependencies
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+          ports:
+            - name: db
+              containerPort: 27017
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              value: root
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              value: example
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/part-of: phototye-dependencies
+spec:
+  ports:
+    - name: management
+      port: 15672
+      targetPort: 15672
+    - name: app
+      port: 5672
+      targetPort: 5672
+  selector:
+    app.kubernetes.io/name: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  labels:
+    app.kubernetes.io/name: mongo
+    app.kubernetes.io/part-of: phototye-dependencies
+spec:
+  ports:
+    - port: 27017
+      targetPort: 27017
+  selector:
+    app.kubernetes.io/name: mongo

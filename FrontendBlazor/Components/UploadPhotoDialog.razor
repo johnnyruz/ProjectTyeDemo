@@ -1,0 +1,147 @@
+﻿@using System.Net.Http.Headers;
+@using System.Text.Json;
+@inject HttpClient Http
+@inject ApiBaseAddress ApiBase
+@inject NavigationManager NavManager
+
+@if (ShowDialog)
+{
+    <div class="h-screen w-full fixed left-0 top-0 flex justify-center items-center bg-black bg-opacity-50">    
+        <div class="bg-white rounded shadow-lg w-1/3">
+            <div class="border-b px-4 py-2 flex justify-between items-center">
+                <h3 class="font-semibold text-lg">Upload New Photo</h3>
+            </div>
+            <div class="p-3">
+                @if (ResizedImageDataUrl != null)
+                {
+                    <div>
+                        <img src=@ResizedImageDataUrl />
+                    </div>
+                }
+
+                <div>
+                    <InputFile OnChange="@HandlePhotoSelection"/>
+                </div>
+
+                @if (Error != null)
+                {
+                    <div class="text-red-900">
+                        @Error
+                    </div>
+                }
+
+            </div>
+            <div class="flex justify-end items-center w-100 border-t p-3">
+                @if (ResizedImageDataUrl != null)
+                {
+                    <button class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white mr-1" @onclick="@UploadPhoto">
+                        <span class="oi oi-cloud-upload" aria-hidden="true"></span> Upload
+                    </button>
+                }
+                <button class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white" @onclick="@Close">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+}
+
+@code {
+    private IBrowserFile PhotoUpload { get; set; }
+    private string ResizedImageDataUrl { get; set; }
+    private string Error { get; set; }
+    private readonly List<string> SupportedFormats = new List<string>() { "image/png", "image/jpeg", "image/jpg", "image/bmp", "image/gif", "image/tga" };
+
+    private readonly JsonSerializerOptions options = new JsonSerializerOptions()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public bool ShowDialog
+    {
+        get;
+        set;
+    }
+    [Parameter]
+    public EventCallback<bool> CloseEventCallback
+    {
+        get;
+        set;
+    }
+    public void Show()
+    {
+        ShowDialog = true;
+        Error = null;
+        StateHasChanged();
+    }
+    public void Close()
+    {
+        ShowDialog = false;
+        StateHasChanged();
+    }
+    private async Task HandlePhotoSelection(InputFileChangeEventArgs e)
+    {
+        ResizedImageDataUrl = null;
+        PhotoUpload = null;
+        if (e.File.Size > 2000000)
+        {
+            Error = "Error: File cannot be larger than 2MB";
+            return;
+        }
+
+        if (!SupportedFormats.Any(f => f == e.File.ContentType))
+        {
+            Error = "Error: Unsupported file type";
+            return;
+        }
+
+        var format = e.File.ContentType;
+        var resizedImageFile = await e.File.RequestImageFileAsync(format,
+                150, 150);
+        var buffer = new byte[resizedImageFile.Size];
+        await resizedImageFile.OpenReadStream().ReadAsync(buffer);
+        ResizedImageDataUrl =
+            $"data:{format};base64,{Convert.ToBase64String(buffer)}";
+        PhotoUpload = e.File;
+        Error = null;
+    }
+    private async Task UploadPhoto()
+    {
+        var fileName = PhotoUpload.Name.Trim('"');
+
+        try
+        {
+            using (var content = new MultipartFormDataContent())
+            {
+                content.Add(new StreamContent(PhotoUpload.OpenReadStream())
+                {
+                    Headers =
+                {
+                    ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "photoData", FileName = fileName },
+                    ContentLength = PhotoUpload.Size,
+                    ContentType = new MediaTypeHeaderValue(PhotoUpload.ContentType)
+                }
+                });
+
+                var response = await Http.PostAsync($"{ApiBase.ApiBaseUrl}/api/photo", content);
+                var stream = await response.Content.ReadAsStreamAsync();
+                var photoResult = await JsonSerializer.DeserializeAsync<Photo>(stream, options);
+
+                NavManager.NavigateTo($"/photoview/{photoResult.Id}");
+            }
+        }
+        catch (Exception e)
+        {
+            return;
+        }
+    }
+
+    public class Photo
+    {
+        public string Id { get; set; }
+        public DateTime UploadDate { get; set; }
+        public string ThumbnailImageData { get; set; }
+        public string ProcessedImageData { get; set; }
+        public bool IsProcessed { get; set; }
+    }
+}
