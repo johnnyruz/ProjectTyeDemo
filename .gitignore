@@ -473,3 +473,4 @@ GitHub.sublime-settings
 
 # Python VENV Removal
 PhotoProcessor/PhotoTyeEnv/
+/.tye
