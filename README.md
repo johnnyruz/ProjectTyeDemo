@@ -29,7 +29,7 @@ This project will demonstrate some of the features of the Microsoft Project Tye 
 
 1. Create an Azure Container Registry and Azure Kubernetes Service in Azure
 
-    **(optional)** Use the included terraform configuration file to spin up a new Resource Group with an Azure Container Instance and Azure Kubernetes Service
+    **(optional)** Use the included terraform configuration file to spin up a new Resource Group with an Azure Container Registry and Azure Kubernetes Service
 
 2. Authenticate with your Azure CR
 ```
